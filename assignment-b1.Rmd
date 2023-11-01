@@ -1,0 +1,238 @@
+---
+title: "assignment-b1"
+author: "Lauren Puumala"
+date: "2023-11-03"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# STAT 545B Assignment B1: Making a Function
+## Introduction
+This is the first assignment of STAT 545B. In this .Rmd file, I will define and document a new function called `count_obs` (Exercises 1 & 2). I will then show various examples of using this function (Exercise 3), followed by some formal tests of the function using the `testthat` package (Exercise 4).  
+  
+**First, I will load the relevant libraries.**  
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(testthat))
+suppressPackageStartupMessages(library(datateachr))
+suppressPackageStartupMessages(library(gapminder))
+suppressPackageStartupMessages(library(palmerpenguins))
+```
+  
+  
+**Then, I will take a glimpse at the datasets that will be used in this assignment for testing the function for a reminder of what they look like.**  
+```{r}
+#REMINDER OF WHAT THE DATASETS USED IN THIS ASSIGNMENT LOOK LIKE
+glimpse(vancouver_trees)
+glimpse(penguins)
+glimpse(gapminder)
+```
+
+## Exercises 1 & 2: Make a function and document it
+The code chunk below defines the function `count_obs` and documents it with roxygen tags. The purpose of this function is to count the number of observations of a categorical variable or combinations of categorical variables and returns the result as a summary tibble. The input parameters to the function are the data frame of interest (`data`) and a character vector containing the name(s) of the grouping variable(s) (`group_vars`). For example, if *vancouver_trees* was used for `data` and **neighbourhood_name** was used for `group_vars`, the function would return a tibble listing the number of trees in the dataset that are in each neighbourhood. If, instead, **neighbourhood_name** *and* **species name** were used for `group_vars`, the function would return a tibble listing the number of trees of each species in each neighbourhood.  
+  
+The function checks the class of the grouping variables specified in `group_vars` to ensure they belong to one of the following classes: character, factor, or date. If the grouping variables do not belong to the acceptable classes, an error message saying "Incorrect grouping variable class. Ensure all group_vars are of class chr, fct, or date" is returned.  
+  
+```{r}
+#' @title
+#' Count the Number of Observations of Categorical Variables
+#'
+#' @description
+#' `count_obs` returns a summary tibble listing the number of observations for each value of a categorical 
+#' variable or combination of categorical variables in a specified data frame. The grouping variables must
+#' belong to one of the following classes: chr, fct, or date.
+#'  
+#'  @param data A data frame;  this parameter was named `data` to make it obvious that this should be the
+#'  raw data frame from which the user wants to extract information.
+#'  @param group_vars Character vector containing the name(s) of the grouping variable(s). One or more
+#'  grouping variables may be used. The grouping variables specify which categorical variable(s) in `data`
+#'  the function should count observations in. The grouping variable must be of class chr, fct, or date.
+#'  This parameter was named `group_vars` to make it obvious that this variable should be used to specify
+#'  the names of the variables that should be used for grouping the data when the function is called. 
+#'  
+#'  @return A tibble listing the number of observations of each value of a categorical variable or
+#'  combination of categorical variables specified in `group_vars` from the data frame `data`.
+#'  
+#' @examples
+#' count_obs(df, "categorical_variable_1")
+
+count_obs <- function(data, group_vars, .groups = 'drop') {
+  # Make sure `data` is a data frame
+  if (is.data.frame(data) == FALSE) {
+    stop('`data` must be a data frame.')
+  }
+
+  # Only allow grouping by variables that belong to character, date, or factor classes
+  # If any grouping variable is an incorrect class, an error message will be thrown
+  i <- 1 # initialize indexing variable
+  
+  for (i in 1:length(group_vars)) { # loop to check variable classes in group_vars
+    if (is.character(data[[group_vars[[i]]]]) == FALSE && is.factor(data[[group_vars[[i]]]]) == FALSE && 
+        is.Date(data[[group_vars[[i]]]]) == FALSE) {
+      stop('Incorrect grouping variable class. Ensure all group_vars are of class chr, fct, or date.')
+    } else {
+      i <- i + 1 # if variable is correct type, move onto next variable in group_vars
+    }
+  }
+
+  # Find the number observations for each group and return the summary table
+  data %>%
+    group_by(pick({{ group_vars }})) %>%
+    summarize(num_obs = n(), .groups = .groups)
+}
+```
+  
+  
+  
+## Exercise 3: Examples
+### Examples using vancouver_trees dataset  
+First, I will test the function using the *vancouver_trees* dataset for the `data` parameter. This dataset includes both categorical and numerical variables.  
+- I will show how the function works when only one categorical variable is used for the parameter `group_vars` (first two function calls). I will demonstrate this with character and date grouping variables (**neighbourhood_name** and **date_planted**, respectively).   
+- I will then demonstrate that the function works when `group_vars` is a character vector containing the names of two categorical grouping variables (third function call; using **neighbourhood_name** and **species_name**).   
+- I will then demonstrate that the function returns an error when `group_vars` contains a grouping variable of type double (fourth function call; using **longitude** and **neighbourhood_name**).   
+- In the fifth function call, I will pass a number to the `data` parameter instead of a data frame to ensure that the function throws the correct error.  
+- In the sixth and final function call, I will supply `group_vars` using incorrect syntax (not as a character vector) to ensure that the function also throws an error for this.      
+  
+```{r error=TRUE}
+# TESTING WITH vancouver_trees DATASET
+count_obs(vancouver_trees, 'neighbourhood_name') # group_vars is type chr
+count_obs(vancouver_trees, 'date_planted') # group_vars is type date
+count_obs(vancouver_trees, c('neighbourhood_name', 'species_name')) # group_vars are both type chr
+count_obs(vancouver_trees, c('longitude', 'neighbourhood_name')) # should return an error b/c longitude is of type dbl
+count_obs(100, 'neighbourhood_name') # should return an error b/c data is not a data frame
+count_obs(vancouver_trees, neighbourhood_name) # should return an error b/c group_vars is supplied with incorrect syntax
+```
+  
+The results of the above code chunk show that the function operates as desired when chr and date grouping variables are used for `group_vars` and fails when `group_vars` contains a grouping variable of class dbl, when `data` is not a data frame, and when `group_vars` is not supplied as a character vector.  
+  
+  
+### Examples using penguins dataset  
+Next, I will test the function using the *penguins* dataset for the `data` parameter.  
+- I will show how the function works when only one categorical variable is used for the parameter `group_vars` (first function call). I will demonstrate this with a fct grouping variable (**species**).  
+- I will then demonstrate that the function works when `group_vars` is a character vector containing the names of two categorical grouping variables of class fct (second function call; using **island** and **species**).  
+- Lastly, I will demonstrate that the function returns an error when `group_vars` is a grouping variable of class int (third function call; using **body_mass_g**).   
+  
+```{r error=TRUE}
+# TESTING WITH penguins DATASET
+count_obs(penguins, 'species') # group_vars is class fct
+count_obs(penguins, c('island', 'species')) # group_vars are both class fct
+count_obs(penguins, "body_mass_g") # should return an error because body_mass_g is of class int
+```
+  
+The results of the above code chunk show that the function operates as desired when grouping variables of class fct are used for `group_vars` and fails when `group_vars` contains a grouping variable of class int.   
+  
+  
+### Examples using gapminder dataset  
+Next, I will test the function using the *gapminder* dataset for the `data` parameter.  
+- I will show how the function works when only one categorical variable is used for the parameter `group_vars` (first function call). I will demonstrate this with a fct grouping variable (**country**).  
+- I will then demonstrate that the function works when `group_vars` is a character vector containing the names of two categorical grouping variables of class fct (second function call; using **continent** and **country**).  
+- Lastly, I will demonstrate that the function returns an error when `group_vars` contains three grouping variables, one of which is of class dbl (third function call; using **continent**, **lifeExp**, and **country**).  
+    
+```{r error=TRUE}
+# TESTING WITH gapminder DATASET
+count_obs(gapminder, 'country') # group_vars is class fct
+count_obs(gapminder, c('continent', 'country')) # group_vars are both class fct
+count_obs(gapminder, c('continent', 'lifeExp', 'country')) # should return an error because lifeExp is of class dbl
+```
+  
+The results of the above code chunk show that the function operates as desired when grouping variables of class fct are used for `group_vars` and fails when `group_vars` contains a grouping variable of class dbl.    
+  
+  
+  
+## Exercise 4: Test the function  
+I will use the *vancouver_trees* dataset for all of the following tests.  
+  
+  
+### Error due to incorrect grouping variable class  
+First, I will perform a test to check that `count_obs()` gives an error saying "Incorrect grouping variable class. Ensure all group_vars are of class chr, fct, or date" when the grouping variables identified in the parameter group_vars do not belong to the following classes: chr, fct, or date. Within a single `test_that()` call, I will perform three calls to `expect_error()` to test three different types of function calls that should generate this error:  
+1. In the first, I will try to group by one dbl variable (**diameter**)
+2. In the second, I will try to group by a chr variable (**neighbourhood_name**) and a dbl variable (**diameter**)  
+3. In the third, I will try to group by three dbl variables (**latitude**, **longitude**, and **diameter**)  
+  
+```{r}
+# TEST CASES THAT SHOULD GIVE AN ERROR DUE TO INCORRECT VARIABLE CLASS
+error_msg <- 'Incorrect grouping variable class. Ensure all group_vars are of class chr, fct, or date'
+
+test_that('Error for non-categorical grouping variable(s)', {
+  expect_error(count_obs(vancouver_trees, 'diameter'), error_msg)
+  expect_error(count_obs(vancouver_trees, c('neighbourhood_name', 'diameter')), error_msg)
+  expect_error(count_obs(vancouver_trees, c('latitude', 'longitude', 'diameter')), error_msg)
+})
+```
+
+As we can see, the test passes, meaning that the function returns the appropriate error when the user tries to group by dbl variables.  
+  
+  
+### Error due to nonsense inputs  
+In this next call to `test_that()`, I will check if `count_obs()` fails when its inputs do not make sense. Namely, I will perform four calls to `expect_error()`:  
+1. In the first, the variable name specified for group_vars (**country**) will not be a variable that is actually in the dataset passed to the function (*neighbourhood_name*)  
+2. In the second, incorrect syntax will be used for the variable name specified for group_vars. In particular, it will not be inputted as a character vector.   
+3. In the third, I will try using numbers as the two inputs to the function, which does not make sense.  
+4. In the fourth, I will only supply one parameter input (the data frame).
+  
+```{r}
+# OTHER TEST CASES THAT SHOULD GIVE AN ERROR
+test_that('Test other cases that should give an error', {
+  expect_error(count_obs(vancouver_trees, 'country')) # 'country' is not a variable in vancouver_trees dataset
+  expect_error(count_obs(vancouver_trees, neighbourhood_name)) # group_vars is not a character vector
+  expect_error(count_obs(1, 2)) # nonsense inputs to both parameters
+  expect_error(count_obs(vancouver_trees)) # missing group_vars
+})
+```
+  
+As we can see, the test passes, meaning that the function returns errors, as desired, for all of these cases.    
+  
+  
+### Check that the function output belongs to the correct class  
+In this call to `test_that()`, I will perform three calls to `expect_s3_class()` to check that the output of `count_obs()` is a tibble when suitable inputs are passed to the function. In these three calls to the expect function, I will specify different numbers of categorical grouping variables to make sure that the function works when the user wants to group by one or more variables. I will test this with chr and date grouping variables. Specifically,   
+1. In the first test, I will group by the variable **genus_name**  
+2. In the second test, I will group by the variables **species_name** and **genus_name**  
+3. In the third test, I will group by the variables **neighbourhood_name**, **genus_name**, **species_name**, and **date_planted**  
+  
+```{r}
+# ENSURE FUNCTION EXECUTES AND RETURNS A TIBBLE WHEN APPROPRIATE VALUES ARE PASSED TO data AND group_vars
+return_class <- c("tbl", "tbl_df", "data.frame")
+
+test_that('Test cases that should work and return a tibble', {
+  expect_s3_class(count_obs(vancouver_trees, 'genus_name'), return_class)
+  expect_s3_class(count_obs(vancouver_trees, c('species_name', 'genus_name')), return_class)
+  expect_s3_class(count_obs(vancouver_trees, c('neighbourhood_name', 'genus_name', 'species_name', 
+                                               'date_planted')), return_class)
+})
+```
+  
+As we can see, the test passed, showing that the function executed and returned tibbles for all three test cases.  
+  
+  
+### Compare function output to manual operations   
+In this final call to `test_that()`, I will check if `count_obs()` returns a tibble that is identical to that obtained when I manually create a summary table listing the number of observations of a categorical variable or variables in the chosen dataset (i.e. when I try doing the same thing as `count_obs()` manually). To ensure that the function is robust, I will include three calls to `expect_identical()` using different numbers of categorical grouping variables:   
+1. In the first, I will use **neighbourhood_name** as the grouping variable  
+2. In the second, I will use **neighbourhood_name** and **species_name** as the grouping variables  
+3. In the third, I will use **neighbourhood_name**, **species_name**, and **date_planted** as the grouping variables  
+  
+```{r}
+# ENSURE FUNCTION RETURNS IDENTICAL TIBBLE TO THAT OBTAINED MANUALLY
+test_1var <- vancouver_trees %>%
+  group_by(neighbourhood_name) %>%
+  summarise(num_obs = n(), .groups = 'drop')
+
+test_2var <- vancouver_trees %>%
+  group_by(neighbourhood_name, species_name) %>%
+  summarise(num_obs = n(), .groups = 'drop')
+
+test_3var <- vancouver_trees %>%
+  group_by(neighbourhood_name, species_name, date_planted) %>%
+  summarise(num_obs = n(), .groups = 'drop')
+
+test_that('Compare to manual computations', {
+  expect_identical(test_1var,count_obs(vancouver_trees, 'neighbourhood_name'))
+  expect_identical(test_2var,count_obs(vancouver_trees, c('neighbourhood_name', 'species_name')))
+  expect_identical(test_3var,count_obs(vancouver_trees, c('neighbourhood_name', 'species_name', 'date_planted')))
+})
+```
+  
+Again, we see that the test passed, indicating that the function returns the same tibbles as manual operations doing the same thing.  
+  
