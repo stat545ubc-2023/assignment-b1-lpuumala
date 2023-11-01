@@ -19,5 +19,6 @@ assignment-b1-lpuumala.Rproj | RStudio project file for this assignment
   - Clone GitHub repo when opening a New Project in R Studio
   - Pull changes from Git
   - Open, edit and run code in the R Studio editor
+  - After making any changes to  the .Rmd file, re-knit the corresponding .md file
 - Commit and push changes to GitHub, as required
 - .md files can be edited directly in GitHub or locally in RStudio
